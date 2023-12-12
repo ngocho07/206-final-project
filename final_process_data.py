@@ -1,118 +1,10 @@
-import requests
-import json
-import unittest
-import matplotlib.pyplot as plt
 import os
 import sqlite3
+import matplotlib.pyplot as plt
 
-def get_harvard_info(api_key, endpoint, params=None):
-    base_url = 'https://api.harvardartmuseums.org'
-
-    url = f'{base_url}{endpoint}&apikey={api_key}'
-
-    try:
-        # print(f'API Key: {api_key}')
-        # print(f'Request URL: {url}')
-        response = requests.get(url, params=params)
-            
-        if response.status_code == 200:
-            harvard_data = response.json()
-            return harvard_data
-        else:
-            print(f'Error: {response.status_code} - {response.text}')
-    
-    except requests.RequestException as e:
-        print(f'Request error: {e}')
-
-# Create database
-def set_up_database(db):
-    path = os.path.dirname(os.path.abspath(__file__))
-    conn = sqlite3.connect(path + "/" + db + ".db")
-    cur = conn.cursor()
-    return cur, conn
-
-# Creates period table in database
-def set_up_period_table(api_key, cur, conn, max_items=25):
-    endpoint = '/period?size=200'
-    page = 1
-
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='period'")
-    table_exists = cur.fetchone()
-
-    if not table_exists:
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS period (
-                period_id INTEGER PRIMARY KEY,
-                object_count INTEGER,
-                name TEXT            
-            )
-        ''')
-
-    while True:
-
-        params = {'size': max_items, 'page': page, 'sort': 'periodid'}
-        harvard_data = get_harvard_info(api_key, endpoint, params)
-
-
-        if not harvard_data.get('records'):
-            break
-
-        for record in harvard_data.get('records', []):
-            period_id = record.get('periodid')
-            objectcount = record.get('objectcount')
-            name = record.get('name')
-            #print(f"Inserting into period: {period_id}, name: {name.encode('utf-8')} objectcount: {objectcount}")
-            cur.execute('''
-                INSERT OR IGNORE INTO period (period_id, object_count, name)
-                VALUES (?, ?, ?)
-            ''', (period_id, objectcount, name))
-
-        page += 1
-            
-    conn.commit()
-
-# Creates period table in database
-def set_up_classification_table(api_key, cur, conn, max_items=25):
-    endpoint = '/classification?size=200'
-    page = 1
-
-    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='classification'")
-    table_exists = cur.fetchone()
-
-    if not table_exists:
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS classification (
-                classification_id INTEGER PRIMARY KEY,
-                object_count INTEGER,
-                name TEXT            
-            )
-        ''')
-
-    while True:
-
-        params = {'size': max_items, 'page': page, 'sort': 'classificationid'}
-        harvard_data = get_harvard_info(api_key, endpoint, params)
-
-
-        if not harvard_data.get('records'):
-            break
-
-        for record in harvard_data.get('records', []):
-            classification_id = record.get('classificationid')
-            objectcount = record.get('objectcount')
-            name = record.get('name')
-
-            cur.execute('''
-                INSERT OR IGNORE INTO classification (classification_id, object_count, name)
-                VALUES (?, ?, ?)
-            ''', (classification_id, objectcount, name))
-
-        page += 1
-            
-    conn.commit()
 
 # Creates a pie chart
-def plot_top_classifciations(api_key, cur, conn, top_n=10):
+def plot_top_classifications(cur, classification_data, top_n=10):
 
     classifications = {
         'Paintings': ['Paintings with Text', 'Paintings with Calligraphy', 'Paintings'],
@@ -148,7 +40,7 @@ def plot_top_classifciations(api_key, cur, conn, top_n=10):
     
     return plt
 
-def plot_top_periods(api_key, cur, conn, top_n=10):
+def plot_top_periods(cur, period_data, top_n=10):
 
     cur.execute('''
         SELECT name, object_count
@@ -175,38 +67,32 @@ def plot_top_periods(api_key, cur, conn, top_n=10):
 
     return plt
 
-class TestHarvardArtMuseumAPI(unittest.TestCase):    
+def process_and_visualize_data():
+    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdb.db")
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
 
-    def setUp(self):
-        self.api_key = '39ce36a2-869c-4bc0-b20b-d1bf6a65f855'
+    cur.execute('''
+        SELECT name, object_count
+        FROM classification
+        ORDER BY object_count DESC
+    ''')
 
-    def test_set_up_period_table(self):
-        cur, conn = set_up_database("harvardmuseum")
+    classification_data = cur.fetchall()
+    plot_top_classifications(cur, classification_data)
 
-        set_up_period_table(self.api_key, cur, conn, max_items=25)
+    cur.execute('''
+        SELECT name, object_count
+        FROM period
+        ORDER BY object_count DESC        
+    ''')
 
-        conn.close()
+    period_data = cur.fetchall()
+    plot_top_periods(cur, period_data)
 
-    def test_set_up_classifciation_table(self):
-        cur, conn = set_up_database("harvardmuseum")
+    plt.show()
 
-        set_up_classification_table(self.api_key, cur, conn, max_items=25)
-
-        conn.close()
-
-    def test_plot_top_periods(self):
-        cur, conn = set_up_database("harvardmuseum")
-        set_up_period_table(self.api_key, cur, conn, max_items=25)
-        plotter = plot_top_periods(self.api_key, cur, conn, top_n=10)
-        plotter.show()  
-        conn.close()
-
-    def test_plot_top_classifications(self):
-        cur, conn = set_up_database("harvardmuseum")
-        set_up_classification_table(self.api_key, cur, conn, max_items=25)
-        plotter = plot_top_classifciations(self.api_key, cur, conn, top_n=10)
-        plotter.show()  
-        conn.close()
+    conn.close()
 
 if __name__ == '__main__':
-    unittest.main()
+    process_and_visualize_data()
