@@ -31,6 +31,7 @@ def set_up_database(db):
     cur = conn.cursor()
     return cur, conn
 
+# Creates period table in database
 def set_up_period_table(api_key, cur, conn, max_items=25):
     endpoint = '/period?size=200'
     page = 1
@@ -69,6 +70,83 @@ def set_up_period_table(api_key, cur, conn, max_items=25):
         page += 1
             
     conn.commit()
+
+# Creates period table in database
+def set_up_classification_table(api_key, cur, conn, max_items=25):
+    endpoint = '/classification?size=200'
+    page = 1
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='classification'")
+    table_exists = cur.fetchone()
+
+    if not table_exists:
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS classification (
+                classification_id INTEGER PRIMARY KEY,
+                object_count INTEGER,
+                name TEXT            
+            )
+        ''')
+
+    while True:
+
+        params = {'size': max_items, 'page': page, 'sort': 'classificationid'}
+        harvard_data = get_harvard_info(api_key, endpoint, params)
+
+
+        if not harvard_data.get('records'):
+            break
+
+        for record in harvard_data.get('records', []):
+            classification_id = record.get('classificationid')
+            objectcount = record.get('objectcount')
+            name = record.get('name')
+
+            cur.execute('''
+                INSERT OR IGNORE INTO classification (classification_id, object_count, name)
+                VALUES (?, ?, ?)
+            ''', (classification_id, objectcount, name))
+
+        page += 1
+            
+    conn.commit()
+
+# Creates a pie chart
+def plot_top_classifciations(api_key, cur, conn, top_n=10):
+
+    classifications = {
+        'Paintings': ['Paintings with Text', 'Paintings with Calligraphy', 'Paintings'],
+        'Sculpture': ['Sculpture', 'Casts', 'Models', 'Statues'],
+        'Graphic Arts': ['Graphic Design', 'Drawings', 'Prints', 'Photographs']
+    }
+
+    classification_counts = {}
+    total_objects = 0
+
+    for category, subcategories in classifications.items():
+        subcategories_query = ', '.join(f"'{subcategory}'" for subcategory in subcategories)
+        cur.execute(f"SELECT SUM(object_count) FROM classification WHERE name IN ({subcategories_query})")
+        count = cur.fetchone()[0]
+        classification_counts[category] = count
+        total_objects += count
+
+    percentages = {category: (count / total_objects) * 100 for category, count in classification_counts.items()}
+
+    labels = percentages.keys()
+    sizes = percentages.values()
+
+    fig, ax = plt.subplots(figsize=(8,8))
+    wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140, textprops=dict(color="w"))
+
+    legend_labels = []
+    for category, subcategories in classifications.items():
+        subcategory_str = ',\n'.join(subcategories)
+        legend_labels.append(f"{category}: {subcategory_str}")
+    
+    ax.legend(wedges, legend_labels, title="Subcategories", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
+    ax.set_title('Percentage of Artwork by Classification')
+    
+    return plt
 
 def plot_top_periods(api_key, cur, conn, top_n=10):
 
@@ -109,6 +187,13 @@ class TestHarvardArtMuseumAPI(unittest.TestCase):
 
         conn.close()
 
+    def test_set_up_classifciation_table(self):
+        cur, conn = set_up_database("harvardmuseum")
+
+        set_up_classification_table(self.api_key, cur, conn, max_items=25)
+
+        conn.close()
+
     def test_plot_top_periods(self):
         cur, conn = set_up_database("harvardmuseum")
         set_up_period_table(self.api_key, cur, conn, max_items=25)
@@ -116,6 +201,12 @@ class TestHarvardArtMuseumAPI(unittest.TestCase):
         plotter.show()  
         conn.close()
 
+    def test_plot_top_classifications(self):
+        cur, conn = set_up_database("harvardmuseum")
+        set_up_classification_table(self.api_key, cur, conn, max_items=25)
+        plotter = plot_top_classifciations(self.api_key, cur, conn, top_n=10)
+        plotter.show()  
+        conn.close()
 
 if __name__ == '__main__':
     unittest.main()
