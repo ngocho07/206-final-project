@@ -5,7 +5,7 @@ import sqlite3
 
 # Connect to SQLite database (or create it if it doesn't exist)
 path = os.path.dirname(os.path.abspath(__file__))
-conn = sqlite3.connect(path + "/" + 'museum.db')
+conn = sqlite3.connect(path + "/" + 'museums.db')
 cur = conn.cursor()
 
 

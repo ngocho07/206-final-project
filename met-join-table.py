@@ -5,10 +5,12 @@ import sqlite3
 
 # Connect to SQLite database (or create it if it doesn't exist)
 path = os.path.dirname(os.path.abspath(__file__))
-conn = sqlite3.connect(path + "/" + 'museum.db')
+conn = sqlite3.connect(path + "/" + 'museums.db')
 cur = conn.cursor()
 
 URL = "https://collectionapi.metmuseum.org/public/collection/v1/departments"
+
+cur.execute('''DROP TABLE IF EXISTS departments''')
 
 # Create artworks table to store artwork data
 cur.execute('''CREATE TABLE IF NOT EXISTS departments (
