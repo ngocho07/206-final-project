@@ -11,8 +11,8 @@ def get_harvard_info(api_key, endpoint, params=None):
     url = f'{base_url}{endpoint}&apikey={api_key}'
 
     try:
-        print(f'API Key: {api_key}')
-        print(f'Request URL: {url}')
+        # print(f'API Key: {api_key}')
+        # print(f'Request URL: {url}')
         response = requests.get(url, params=params)
             
         if response.status_code == 200:
@@ -33,26 +33,40 @@ def set_up_database(db):
 
 def set_up_period_table(api_key, cur, conn, max_items=25):
     endpoint = '/period?size=200'
-    params = {'size': max_items}
-    harvard_data = get_harvard_info(api_key, endpoint, params)
+    page = 1
 
-    cur.execute('''
-        CREATE TABLE IF NOT EXISTS period (
-            period_id INTEGER PRIMARY KEY,
-            object_count INTEGER,
-            name TEXT            
-        )
-    ''')
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='period'")
+    table_exists = cur.fetchone()
 
-    for record in harvard_data.get('records', []):
-        period_id = record.get('periodid')
-        objectcount = record.get('objectcount')
-        name = record.get('name')
-        print(f"Inserting into period: {period_id}, name: {name} objectcount: {objectcount}")
+    if not table_exists:
         cur.execute('''
-            INSERT INTO period (period_id, object_count, name)
-            VALUES (?, ?, ?)
-        ''', (period_id, objectcount, name))
+            CREATE TABLE IF NOT EXISTS period (
+                period_id INTEGER PRIMARY KEY,
+                object_count INTEGER,
+                name TEXT            
+            )
+        ''')
+
+    while True:
+
+        params = {'size': max_items, 'page': page, 'sort': 'periodid'}
+        harvard_data = get_harvard_info(api_key, endpoint, params)
+
+
+        if not harvard_data.get('records'):
+            break
+
+        for record in harvard_data.get('records', []):
+            period_id = record.get('periodid')
+            objectcount = record.get('objectcount')
+            name = record.get('name')
+            #print(f"Inserting into period: {period_id}, name: {name.encode('utf-8')} objectcount: {objectcount}")
+            cur.execute('''
+                INSERT OR IGNORE INTO period (period_id, object_count, name)
+                VALUES (?, ?, ?)
+            ''', (period_id, objectcount, name))
+
+        page += 1
             
     conn.commit()
 
