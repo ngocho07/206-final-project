@@ -14,6 +14,8 @@ cur = conn.cursor()
 #########################
 
 # Create a table to keep track of the last processed ID
+cur.execute('''DROP TABLE IF EXISTS api_state''')
+            
 cur.execute('''CREATE TABLE IF NOT EXISTS api_state (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
                       last_processed_index INT
@@ -39,10 +41,8 @@ cur.execute('''CREATE TABLE IF NOT EXISTS artworks (
                       artist TEXT, 
                       medium TEXT, 
                       period TEXT,
-                      isHighlight BOOLEAN
+                      department TEXT
             )''')
-
-# results = cur.fetchall() # Fetch before commit
 conn.commit()
 
 PAINT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=11"
@@ -60,7 +60,6 @@ def fetch_object_ids(start, end, url):
         if r.status_code == 200:
             # Fetch 25 IDs from last processed index
             object_ids = r.json().get('objectIDs', [])[start:end]
-
             return object_ids
     except:
         print("Cannot open API!")
@@ -73,8 +72,8 @@ def insert_data(artwork):
     cur.execute("SELECT id FROM artworks WHERE id = ?", (artwork['objectID'],))
 
     if cur.fetchone() is None:
-        cur.execute("INSERT INTO artworks (id, title, artist, medium, period, isHighlight) VALUES (?, ?, ?, ?, ?, ?)",
-                    (artwork['objectID'], artwork['title'], artwork['artistDisplayName'], artwork['medium'], artwork['period'], artwork['isHighlight']))
+        cur.execute("INSERT INTO artworks (id, title, artist, medium, period, department) VALUES (?, ?, ?, ?, ?, ?)",
+                    (artwork['objectID'], artwork['title'], artwork['artistDisplayName'], artwork['medium'], artwork['period'], artwork['department']))
         conn.commit()
 
 
@@ -180,13 +179,13 @@ def bar_plot():
     
 def main():
     # Uncomment for loading database
-    # load_data(last_index, ASIAN_URL)
+    load_data(last_index, ASIAN_URL)
     
     # Uncomment for visualization
-    load_data(26, ASIAN_URL)
-    pie_chart_with_legend()
+    # load_data(26, ASIAN_URL)
+    # pie_chart_with_legend()
     # pie_chart()
     # bar_plot()
-     
+
 if __name__ == '__main__':
     main()
