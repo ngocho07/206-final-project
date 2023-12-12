@@ -13,13 +13,13 @@ cur = conn.cursor()
 # Create a table to keep track of the last processed ID
 cur.execute('''CREATE TABLE IF NOT EXISTS api_state (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
-                      last_processed_id INT
-                  )''')
+                      last_processed_index INT
+                )''')
 
 # Initialize or fetch the last processed ID
-cur.execute("SELECT last_processed_id FROM api_state ORDER BY id DESC LIMIT 1")
-most_recent_id = cur.fetchone()
-last_id = most_recent_id[0] if most_recent_id else 0
+cur.execute("SELECT last_processed_index FROM api_state ORDER BY id DESC LIMIT 1")
+most_recent_index = cur.fetchone()
+last_index = most_recent_index[0] if most_recent_index else 0
 limit = 25 # Retrieve at most 25 entries every time
 
 # Create a table
@@ -35,23 +35,23 @@ cur.execute('''CREATE TABLE IF NOT EXISTS artworks (
 # results = cur.fetchall() # Fetch before commit
 conn.commit()
 
-# Only fetch from isOnDisplay pieces
-BASE_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search?isOnView=true&q=sunflower"
-
+PAINT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=11"
+SCULP_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=12"
+HIGHL_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search?isHighlight=true&q=sunflowers"
 
 # Fetch object IDs
-def fetch_object_ids(last_id):
+def fetch_object_ids(start, end, url):
     try:
-        r = requests.get(BASE_URL)
+        # Requests from specific department
+        r = requests.get(PAINT_URL)
+        
         if r.status_code == 200:
+            # Fetch 25 IDs from last processed index
+            object_ids = r.json().get('objectIDs', [])[start:end]
 
-            start_id = last_id + 1 # if last_id in object_ids else 0
-
-            object_ids = r.json().get('objectIDs', []) 
-
-            return object_ids[start_id:start_id + limit] # Fetch 25 IDs
+            return object_ids
     except:
-        print("Exception!")
+        print("Cannot open API!")
         return []
 
 
@@ -66,10 +66,11 @@ def insert_data(artwork):
 
 
 def main(last_id):
-    new_last_id = last_id
+    start = last_id
+    end = last_id + limit
 
     # Fetch data from the API from the last_id
-    object_ids = fetch_object_ids(last_id)
+    object_ids = fetch_object_ids(start, end, PAINT_URL)
 
     for object_id in object_ids:
         # Get each object's detail
@@ -77,23 +78,14 @@ def main(last_id):
         
         if detail.status_code == 200:
             insert_data(detail.json())
-            new_last_id = object_id
+            start = end + 1
 
     # Update the last processed ID in the database
-    cur.execute("INSERT INTO api_state (last_processed_id) VALUES (?)", (new_last_id,))
+    cur.execute("INSERT INTO api_state (last_processed_index) VALUES (?)", (start,))
     conn.commit()
 
-
-# for offset in range(0, len(object_ids), limit):
-#     ids_subset = object_ids[offset:offset+limit]
-
-#     for object_id in ids_subset:
-#     # Get each object's detail
-#         detail = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{object_id}")
-#         if detail.status_code == 200:
-#             insert_data(detail.json())
      
 
 if __name__ == '__main__':
-    main(last_id)
+    main(last_index)
     conn.close()
