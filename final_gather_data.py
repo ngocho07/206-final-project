@@ -1,18 +1,14 @@
 import requests
-import json
-import unittest
-import matplotlib.pyplot as plt
 import os
 import sqlite3
 
+# Get data from Harvard Art Museums API
 def get_harvard_info(api_key, endpoint, params=None):
     base_url = 'https://api.harvardartmuseums.org'
 
     url = f'{base_url}{endpoint}&apikey={api_key}'
 
-    try:
-        # print(f'API Key: {api_key}')
-        # print(f'Request URL: {url}')
+    try:        
         response = requests.get(url, params=params)
             
         if response.status_code == 200:
@@ -111,102 +107,15 @@ def set_up_classification_table(api_key, cur, conn, max_items=25):
             
     conn.commit()
 
-# Creates a pie chart
-def plot_top_classifciations(api_key, cur, conn, top_n=10):
+def gather_data(api_key):
+    cur, conn = set_up_database("testdb")
 
-    classifications = {
-        'Paintings': ['Paintings with Text', 'Paintings with Calligraphy', 'Paintings'],
-        'Sculpture': ['Sculpture', 'Casts', 'Models', 'Statues'],
-        'Graphic Arts': ['Graphic Design', 'Drawings', 'Prints', 'Photographs']
-    }
+    set_up_period_table(api_key, cur, conn, max_items=25)
 
-    classification_counts = {}
-    total_objects = 0
+    set_up_classification_table(api_key, cur, conn, max_items=25)
 
-    for category, subcategories in classifications.items():
-        subcategories_query = ', '.join(f"'{subcategory}'" for subcategory in subcategories)
-        cur.execute(f"SELECT SUM(object_count) FROM classification WHERE name IN ({subcategories_query})")
-        count = cur.fetchone()[0]
-        classification_counts[category] = count
-        total_objects += count
-
-    percentages = {category: (count / total_objects) * 100 for category, count in classification_counts.items()}
-
-    labels = percentages.keys()
-    sizes = percentages.values()
-
-    fig, ax = plt.subplots(figsize=(8,8))
-    wedges, texts, autotexts = ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140, textprops=dict(color="w"))
-
-    legend_labels = []
-    for category, subcategories in classifications.items():
-        subcategory_str = ',\n'.join(subcategories)
-        legend_labels.append(f"{category}: {subcategory_str}")
-    
-    ax.legend(wedges, legend_labels, title="Subcategories", loc="center left", bbox_to_anchor=(1, 0, 0.5, 1))
-    ax.set_title('Percentage of Artwork by Classification')
-    
-    return plt
-
-def plot_top_periods(api_key, cur, conn, top_n=10):
-
-    cur.execute('''
-        SELECT name, object_count
-        FROM period
-        ORDER BY object_count DESC
-        LIMIT ?
-    ''', (top_n,))
-
-    top_periods = cur.fetchall()
-
-    period_names, object_counts = zip(*top_periods)
-
-    plt.figure(figsize=(10, 6))
-
-    norm = plt.Normalize(0, len(period_names))
-    colors = plt.cm.viridis_r(norm(range(len(period_names))))
-
-    plt.bar(period_names, object_counts, color=colors)
-    plt.xlabel('Art Periods')
-    plt.ylabel('Number of Artworks')
-    plt.title(f'Art Periods With The Highest Number of Artworks')
-    plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
-
-    return plt
-
-class TestHarvardArtMuseumAPI(unittest.TestCase):    
-
-    def setUp(self):
-        self.api_key = '39ce36a2-869c-4bc0-b20b-d1bf6a65f855'
-
-    def test_set_up_period_table(self):
-        cur, conn = set_up_database("harvardmuseum")
-
-        set_up_period_table(self.api_key, cur, conn, max_items=25)
-
-        conn.close()
-
-    def test_set_up_classifciation_table(self):
-        cur, conn = set_up_database("harvardmuseum")
-
-        set_up_classification_table(self.api_key, cur, conn, max_items=25)
-
-        conn.close()
-
-    def test_plot_top_periods(self):
-        cur, conn = set_up_database("harvardmuseum")
-        set_up_period_table(self.api_key, cur, conn, max_items=25)
-        plotter = plot_top_periods(self.api_key, cur, conn, top_n=10)
-        plotter.show()  
-        conn.close()
-
-    def test_plot_top_classifications(self):
-        cur, conn = set_up_database("harvardmuseum")
-        set_up_classification_table(self.api_key, cur, conn, max_items=25)
-        plotter = plot_top_classifciations(self.api_key, cur, conn, top_n=10)
-        plotter.show()  
-        conn.close()
+    conn.close()
 
 if __name__ == '__main__':
-    unittest.main()
+    api_key = '39ce36a2-869c-4bc0-b20b-d1bf6a65f855'
+    gather_data(api_key)
