@@ -14,7 +14,7 @@ cur = conn.cursor()
 #########################
 
 # Create a table to keep track of the last processed ID
-cur.execute('''DROP TABLE IF EXISTS api_state''')
+# cur.execute('''DROP TABLE IF EXISTS api_state''')
             
 cur.execute('''CREATE TABLE IF NOT EXISTS api_state (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,13 +179,20 @@ def bar_plot():
     
 def main():
     # Uncomment for loading database
-    load_data(last_index, ASIAN_URL)
+    load_data(last_index, PAINT_URL)
     
     # Uncomment for visualization
     # load_data(26, ASIAN_URL)
     # pie_chart_with_legend()
     # pie_chart()
     # bar_plot()
+
+    # load_data(26, ASIAN_URL)
+    # load_data(0, PAINT_URL)
+    # load_data(52, PAINT_URL)
+    # load_data(0, HIGHL_URL)
+    # load_data(104, SCULP_URL)
+
 
 if __name__ == '__main__':
     main()
