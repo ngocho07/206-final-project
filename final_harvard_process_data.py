@@ -2,7 +2,6 @@ import os
 import sqlite3
 import matplotlib.pyplot as plt
 
-
 # Creates a pie chart
 def plot_top_classifications(cur, classification_data, top_n=10):
 
@@ -24,6 +23,10 @@ def plot_top_classifications(cur, classification_data, top_n=10):
 
     percentages = {category: (count / total_objects) * 100 for category, count in classification_counts.items()}
 
+    # Write percentages to a text file
+    output_file = 'calculations.txt'
+    write_data_to_file(percentages, output_file)
+
     labels = percentages.keys()
     sizes = percentages.values()
 
@@ -39,6 +42,11 @@ def plot_top_classifications(cur, classification_data, top_n=10):
     ax.set_title('Percentage of Art Subcategories by Overall Classifications')
     
     return plt
+
+def write_data_to_file(data, output_file):
+    with open(output_file, 'w') as file:
+        for key, value in data.items():
+            file.write(f'{key}: {value:.2f}%\n')
 
 def plot_top_periods(cur, period_data, top_n=10):
 
@@ -93,6 +101,6 @@ def process_and_visualize_data():
     plt.show()
 
     conn.close()
-
+    
 if __name__ == '__main__':
     process_and_visualize_data()
