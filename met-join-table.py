@@ -20,25 +20,20 @@ cur.execute('''CREATE TABLE IF NOT EXISTS departments (
 conn.commit()
 
 # Fetch object IDs
-def fetch(url):
-    try:
-        r = requests.get(url)
-        if r.status_code == 200:
-            return r.json()
-    except:
-        print("Cannot open API!")
-        return {}
+# def fetch(url):
+try:
+    r = requests.get(URL)
+    if r.status_code == 200:
+        data = r.json()
+except:
+    print("Cannot open API!")
+    data = {}
 
 # Insert each piece info into the database
-def insert_data(data):
-    for department in data["departments"]:
-
-        cur.execute("INSERT INTO departments (departmentId, displayName) VALUES (?, ?)",
-                    (department['departmentId'], department['displayName']),)
-        conn.commit()
-
-json_data = fetch(URL)
-insert_data(json_data)
+for department in data["departments"]:
+    cur.execute("INSERT INTO departments (departmentId, displayName) VALUES (?, ?)",
+                (department['departmentId'], department['displayName']),)
+    conn.commit()
 
 cur.execute("""SELECT d.departmentId, d.displayName, COUNT(a.id) AS artworkCount
                 FROM departments d

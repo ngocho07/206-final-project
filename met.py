@@ -1,7 +1,8 @@
-import requests
-import matplotlib.pyplot as plt
 import os
 import sqlite3
+import requests
+import matplotlib.pyplot as plt
+import random
 
 # Connect to SQLite database (or create it if it doesn't exist)
 path = os.path.dirname(os.path.abspath(__file__))
@@ -13,8 +14,8 @@ cur = conn.cursor()
 # This is the part that limited the data to 25 items stored each time you ran this file
 #########################
 
+
 # Create a table to keep track of the last processed ID
-# cur.execute('''DROP TABLE IF EXISTS api_state''')
             
 cur.execute('''CREATE TABLE IF NOT EXISTS api_state (
                       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,16 +40,14 @@ cur.execute('''CREATE TABLE IF NOT EXISTS artworks (
                       id INTEGER PRIMARY KEY, 
                       title TEXT, 
                       artist TEXT, 
-                      medium TEXT, 
-                      period TEXT,
+                      medium TEXT,
                       department TEXT
             )''')
 conn.commit()
 
-PAINT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=11"
-SCULP_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=12"
-HIGHL_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search?isHighlight=true&q=sunflowers"
-ASIAN_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=6"
+
+def generate_random_department():
+    return f"https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds={random.randint(1, 21)}"
 
 
 # Fetch object IDs
@@ -72,8 +71,8 @@ def insert_data(artwork):
     cur.execute("SELECT id FROM artworks WHERE id = ?", (artwork['objectID'],))
 
     if cur.fetchone() is None:
-        cur.execute("INSERT INTO artworks (id, title, artist, medium, period, department) VALUES (?, ?, ?, ?, ?, ?)",
-                    (artwork['objectID'], artwork['title'], artwork['artistDisplayName'], artwork['medium'], artwork['period'], artwork['department']))
+        cur.execute("INSERT INTO artworks (id, title, artist, medium, period, department) VALUES (?, ?, ?, ?, ?)",
+                    (artwork['objectID'], artwork['title'], artwork['artistDisplayName'], artwork['medium'], artwork['department']))
         conn.commit()
 
 
@@ -97,7 +96,7 @@ def load_data(last_id, dept_url):
     conn.commit()
 
 
-def pie_chart_with_legend():
+def make_pie_chart_with_legend():
     # Count the number of artworks for each medium
     cur.execute("SELECT medium, COUNT(*) FROM artworks GROUP BY medium")
     medium_counts = cur.fetchall()
@@ -109,8 +108,11 @@ def pie_chart_with_legend():
     conn.close()
 
     ###########################
+
+    # Adding an 'Other' count
+
     # Determine the threshold for minimum count to get its own slice
-    threshold = 4
+    threshold = 3
 
     # Create new lists for the adjusted categories and counts
     adjusted_mediums = []
@@ -129,17 +131,19 @@ def pie_chart_with_legend():
     if other_count > 0:
         adjusted_mediums.append('Other')
         adjusted_counts.append(other_count)
+
+    
     ###########################
 
     # Make chart and create legend
     plt.figure(figsize=(10, 8))
-    patches, texts, autotexts = plt.pie(adjusted_counts, autopct='%1.1f%%', startangle=140)
-    plt.legend(patches, adjusted_mediums, loc="upper right", title="Mediums")
+    patches, autotexts, texts = plt.pie(adjusted_counts, autopct='%1.1f%%', startangle=140)
+    plt.legend(patches, adjusted_mediums, loc="best", title="Mediums")
     plt.title('Distribution of Mediums in the Met Collection of Asian Art')
 
     plt.show()
 
-def pie_chart():
+def make_pie_chart():
     # Count the number of artworks for each medium
     cur.execute("SELECT medium, COUNT(*) FROM artworks GROUP BY medium")
     medium_counts = cur.fetchall()
@@ -157,7 +161,7 @@ def pie_chart():
 
     plt.show()
     
-def bar_plot():
+def make_bar_plot():
     # Count the number of artworks for each medium
     cur.execute("SELECT medium, COUNT(*) FROM artworks GROUP BY medium")
     medium_counts = cur.fetchall()
@@ -178,20 +182,20 @@ def bar_plot():
 
     
 def main():
-    # Uncomment for loading database
-    load_data(last_index, PAINT_URL)
-    
-    # Uncomment for visualization
-    # load_data(26, ASIAN_URL)
-    # pie_chart_with_legend()
-    # pie_chart()
-    # bar_plot()
+    # Uncomment to load database
 
-    # load_data(26, ASIAN_URL)
-    # load_data(0, PAINT_URL)
-    # load_data(52, PAINT_URL)
-    # load_data(0, HIGHL_URL)
-    # load_data(104, SCULP_URL)
+    # Feel free to choose from any of the API links below
+    # Example: load_data(last_index, PAINT_URL)
+    PAINT_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=11"
+    SCULP_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=12"
+    HIGHL_URL = "https://collectionapi.metmuseum.org/public/collection/v1/search?isHighlight=true&q=sunflowers"
+    ASIAN_URL = "https://collectionapi.metmuseum.org/public/collection/v1/objects?metadataDate=2018-10-22&departmentIds=6"
+    
+    # Or keep it dicey and generate a random department number every time
+    load_data(last_index, generate_random_department())
+
+    # Uncomment for visualization
+    # make_pie_chart_with_legend()
 
 
 if __name__ == '__main__':
