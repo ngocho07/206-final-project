@@ -195,7 +195,7 @@ def main():
     load_data(last_index, generate_random_department())
 
     # Uncomment for visualization
-    # make_pie_chart_with_legend()
+    make_pie_chart_with_legend()
 
 
 if __name__ == '__main__':
